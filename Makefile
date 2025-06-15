@@ -1,12 +1,22 @@
 # cmake macros
-all: prep
+SHELL = /bin/bash
+.PHONY: all build dbuild run drun venv
+
+all: run
+
+build:
+	cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 	cmake --build build
 
-prep:
-	cmake -S . -B build
+dbuild:
+	cmake -S . -B dbuild -DCMAKE_BUILD_TYPE=Debug
+	cmake --build dbuild
 
-debug:
-	cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
+run: build
+	./build/Release/game
 
-run:
-	./build/game
+drun: dbuild
+	gdb ./dbuild/Debug/game
+
+test:
+	
