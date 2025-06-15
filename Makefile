@@ -1,6 +1,6 @@
 # cmake macros
 SHELL = /bin/bash
-.PHONY: all build dbuild run drun venv
+.PHONY: all build dbuild run drun venv test
 
 all: run
 
@@ -18,5 +18,5 @@ run: build
 drun: dbuild
 	gdb ./dbuild/Debug/game
 
-test:
-	
+test: dbuild
+	$(MAKE) -C dbuild test ARGS="--output-on-failure"

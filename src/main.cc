@@ -1,29 +1,32 @@
 #include <SDL3/SDL.h>
-#include <iostream>
-#include "utils.h"
-#include "absl/status/statusor.h"
-#include "absl/status/status.h"
-#include "absl/strings/str_cat.h"
 #include <glad/gl.h>
 
-struct Globals
-{
+#include <iostream>
+
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
+#include "ecs/entity.h"
+#include "utils.h"
+
+using dennistwo::Entity;
+
+struct Globals {
     SDL_Window *window;
     SDL_GLContext glContext;
     SDL_Renderer *renderer;
     bool exitSignal = false;
+    Entity *root;
 };
 
-void GLDebug()
-{
+void GLDebug() {
     std::cout << glGetString(GL_VENDOR) << std::endl;
     std::cout << glGetString(GL_RENDERER) << std::endl;
     std::cout << glGetString(GL_VERSION) << std::endl;
     std::cout << glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl;
 }
 
-absl::StatusOr<Globals> Init()
-{
+absl::StatusOr<Globals> Init() {
     SDL_Init(SDL_INIT_VIDEO);
 
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
@@ -34,22 +37,19 @@ absl::StatusOr<Globals> Init()
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
 
     SDL_Window *glWindow = SDL_CreateWindow("hello", 640, 480, SDL_WINDOW_OPENGL);
-    if (glWindow == nullptr)
-    {
+    if (glWindow == nullptr) {
         return absl::InternalError(
             absl::StrCat("failed to create window: ", SDL_GetError()));
     }
 
     SDL_GLContext glContext = SDL_GL_CreateContext(glWindow);
 
-    if (glContext == nullptr)
-    {
+    if (glContext == nullptr) {
         return absl::InternalError(
             absl::StrCat("failed to create glContext: ", SDL_GetError()));
     }
 
-    if (!gladLoadGL(SDL_GL_GetProcAddress))
-    {
+    if (!gladLoadGL(SDL_GL_GetProcAddress)) {
         return absl::InternalError(
             "failed during gladLoadGL");
     }
@@ -57,8 +57,7 @@ absl::StatusOr<Globals> Init()
     GLDebug();
 
     SDL_Renderer *renderer = SDL_CreateRenderer(glWindow, NULL);
-    if (renderer == nullptr)
-    {
+    if (renderer == nullptr) {
         return absl::InternalError(
             absl::StrCat("failed to create renderer: ", SDL_GetError()));
     }
@@ -67,37 +66,32 @@ absl::StatusOr<Globals> Init()
         .window = glWindow,
         .glContext = glContext,
         .renderer = renderer,
+        .root = new Entity("Root"),
     };
 }
 
-void Cleanup(Globals &&globals)
-{
+void Cleanup(Globals &&globals) {
     SDL_DestroyRenderer(globals.renderer);
     SDL_DestroyWindow(globals.window);
     SDL_Quit();
+    delete globals.root;
 }
 
-void MainLoop(Globals &globals)
-{
-    auto [window, glContext, renderer, _] = globals;
+void MainLoop(Globals &globals) {
+    auto [window, glContext, renderer, _1, _2] = globals;
     SDL_Event e;
-    while (!globals.exitSignal)
-    {
-        while (SDL_PollEvent(&e))
-        {
-            if (e.type == SDL_EVENT_QUIT)
-            {
+    while (!globals.exitSignal) {
+        while (SDL_PollEvent(&e)) {
+            if (e.type == SDL_EVENT_QUIT) {
                 globals.exitSignal = true;
             }
         }
     }
 }
 
-int main()
-{
+int main() {
     absl::StatusOr<Globals> globals = Init();
-    if (!globals.ok())
-    {
+    if (!globals.ok()) {
         print(globals.status().ToString());
     }
 
