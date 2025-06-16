@@ -4,6 +4,7 @@
 #include <iostream>
 #include <string>
 
+#include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 
 namespace dennistwo {
@@ -14,7 +15,6 @@ void Print(absl::string_view message) {
 std::string LoadTextFile(absl::string_view path) {
     std::string result;
     std::string line;
-    Print(path);
     std::ifstream file(path.data());
     if (file.is_open()) {
         while (std::getline(file, line)) {
@@ -22,7 +22,7 @@ std::string LoadTextFile(absl::string_view path) {
         }
         file.close();
     } else {
-        Print("file not found");
+        Print(absl::StrCat("File not found: ", path));
     }
     return result;
 }

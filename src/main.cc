@@ -7,12 +7,29 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "ecs/entity.h"
 #include "utils.h"
 
 using dennistwo::LoadTextFile;
 using dennistwo::Print;
 using dennistwo::ecs::Entity;
+
+static void GLClearAllErrors() {
+    while (glGetError() != GL_NO_ERROR) {
+    }
+}
+
+static void GLCheckErrorStatus(const char *function, int line) {
+    while (GLenum error = glGetError()) {
+        Print(absl::StrFormat("OpenGL error %d from %s line %d", error, function, line));
+    }
+}
+
+#define GL_CHECKED(f)   \
+    GLClearAllErrors(); \
+    f;                  \
+    GLCheckErrorStatus(#f, __LINE__)
 
 struct Globals {
     std::string *assetsDir;
@@ -23,6 +40,9 @@ struct Globals {
     Entity *root;
 };
 
+int VIEWPORT_WIDTH = 640;
+int VIEWPORT_HEIGHT = 480;
+
 void GLDebug() {
     std::cout << glGetString(GL_VENDOR) << std::endl;
     std::cout << glGetString(GL_RENDERER) << std::endl;
@@ -30,30 +50,43 @@ void GLDebug() {
     std::cout << glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl;
 }
 
-GLuint VAO = 0;
-GLuint VBO = 0;
-
-int VIEWPORT_WIDTH = 640;
-int VIEWPORT_HEIGHT = 480;
-
+GLuint VertexArrayObjects;
+GLuint BufferObjects[2];
 void VertexSpec() {
-    const std::vector<GLfloat> vertices{
-        -0.5, -0.5, 0,
-        0.5, -0.5, 0.0,
-        0.0, 0.8, 0.0};
+    // vertices
+    const std::vector<GLfloat> data{
+        -0.5f, -0.5f, 0.f,
+        1.f, 0.f, 0.f,  // color
+        0.5f, -0.5f, 0.0f,
+        0.f, 1.f, 0.f,  // color
+        -0.5f, 0.5f, 0.0f,
+        0.f, 0.f, 1.f,  // color
+        0.5f, 0.5f, 0.0f,
+        0.f, 0.f, 1.f,  // color
+    };
+    // indices of the triangles
+    const std::vector<GLuint> indices{
+        0, 1, 2,
+        2, 1, 3};
 
-    glGenVertexArrays(1, &VAO);
-    glBindVertexArray(VAO);
+    glGenVertexArrays(1, &VertexArrayObjects);
+    glBindVertexArray(VertexArrayObjects);
 
-    glGenBuffers(1, &VBO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, vertices.size() * sizeof(GLfloat), vertices.data(), GL_STATIC_DRAW);
+    glGenBuffers(2, BufferObjects);
+    glBindBuffer(GL_ARRAY_BUFFER, BufferObjects[0]);
+    glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(GLfloat), data.data(), GL_STATIC_DRAW);
 
     glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, 0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), 0);
+    glEnableVertexAttribArray(1);
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (GLvoid *)(3 * sizeof(GLfloat)));
+
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, BufferObjects[1]);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(GLuint), indices.data(), GL_STATIC_DRAW);
 
     glBindVertexArray(0);
     glDisableVertexAttribArray(0);
+    glDisableVertexAttribArray(1);
 }
 
 GLuint PIPELINE_SHADER_PROGRAM = 0;
@@ -68,6 +101,16 @@ GLuint CompileShader(GLuint type, absl::string_view source) {
     const char *data = source.data();
     glShaderSource(shader, 1, &data, nullptr);
     glCompileShader(shader);
+    int result;
+    glGetShaderiv(shader, GL_COMPILE_STATUS, &result);
+    if (result == GL_FALSE) {
+        int length;
+        glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &length);
+        char *errorMessage = new char[length];
+        glGetShaderInfoLog(shader, length, &length, errorMessage);
+        Print(errorMessage);
+        delete[] errorMessage;
+    }
     return shader;
 }
 
@@ -80,6 +123,8 @@ GLuint CreateShaderProgram(absl::string_view vs, absl::string_view fs) {
     glLinkProgram(program);
     glValidateProgram(program);
     // delete
+    glDetachShader(program, cvs);
+    glDetachShader(program, cfs);
     glDeleteShader(cvs);
     glDeleteShader(cfs);
     return program;
@@ -141,6 +186,7 @@ absl::StatusOr<Globals> Init(absl::string_view binaryDir) {
 
 void Cleanup(Globals &&globals) {
     SDL_DestroyRenderer(globals.renderer);
+    SDL_GL_DestroyContext(globals.glContext);
     SDL_DestroyWindow(globals.window);
     SDL_Quit();
     delete globals.root;
@@ -156,9 +202,8 @@ void PreDraw() {
     glUseProgram(PIPELINE_SHADER_PROGRAM);
 }
 void Draw() {
-    glBindVertexArray(VAO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glDrawArrays(GL_TRIANGLES, 0, 3);
+    GL_CHECKED(glBindVertexArray(VertexArrayObjects));
+    GL_CHECKED(glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0));
 }
 
 void MainLoop(Globals &globals) {

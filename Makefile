@@ -21,5 +21,5 @@ drun: dbuild
 test: dbuild
 	$(MAKE) -C dbuild test ARGS="--output-on-failure"
 
-valgrind: build
-	valgrind ./build/game --leak-check=full -s
+valgrind: dbuild
+	valgrind --leak-check=full -s ./dbuild/game 
