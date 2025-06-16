@@ -1,6 +1,6 @@
 # cpp Dependencies
-- absl
+- abseil
 - SDL3
 
 # cpp dev dependencies
-- catch2
+- catch2 (for testing)

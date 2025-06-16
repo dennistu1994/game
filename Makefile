@@ -13,10 +13,13 @@ dbuild:
 	cmake --build dbuild
 
 run: build
-	./build/Release/game
+	./build/game
 
 drun: dbuild
-	gdb ./dbuild/Debug/game
+	gdb ./dbuild/game
 
 test: dbuild
 	$(MAKE) -C dbuild test ARGS="--output-on-failure"
+
+valgrind: build
+	valgrind ./build/game --leak-check=full -s
