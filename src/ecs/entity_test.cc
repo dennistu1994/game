@@ -4,12 +4,12 @@
 #include <catch2/catch_test_macros.hpp>
 
 #include "absl/strings/str_cat.h"
-#include "math/math.h"
+#include "glm/vec3.hpp"
 
 namespace {
 using Catch::Approx;
 using dennistwo::ecs::Entity;
-using dennistwo::math::float3;
+using ::glm::vec3;
 
 TEST_CASE("Entity_SmokeTest") {
     Entity entity;

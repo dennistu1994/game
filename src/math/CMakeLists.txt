@@ -1,1 +1,0 @@
-add_library(dennistwo_math STATIC math.h math.cc)
