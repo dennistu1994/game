@@ -1,5 +1,5 @@
 
-add_library(dennistwo_ecs STATIC entity.h entity.cc)
+add_library(dennistwo_ecs STATIC entity.h entity.cc entity_factory.h entity_factory.cc)
 target_link_libraries(dennistwo_ecs PRIVATE absl::string_view)
 target_link_libraries(dennistwo_ecs PUBLIC glm::glm)
 

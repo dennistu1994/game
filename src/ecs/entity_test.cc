@@ -1,10 +1,10 @@
 #include "entity.h"
 
+#include <absl/strings/str_cat.h>
+
 #include <catch2/catch_approx.hpp>
 #include <catch2/catch_test_macros.hpp>
-
-#include "absl/strings/str_cat.h"
-#include "glm/vec3.hpp"
+#include <glm/vec3.hpp>
 
 namespace {
 using Catch::Approx;

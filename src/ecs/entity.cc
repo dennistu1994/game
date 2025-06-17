@@ -1,11 +1,11 @@
 #include "entity.h"
 
+#include <absl/strings/string_view.h>
+
+#include <glm/vec3.hpp>
 #include <iostream>
 #include <memory>
 #include <optional>
-
-#include "absl/strings/string_view.h"
-#include "glm/vec3.hpp"
 
 namespace dennistwo::ecs {
 using ::glm::vec3;

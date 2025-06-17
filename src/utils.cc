@@ -1,11 +1,11 @@
 #include "utils.h"
 
+#include <absl/strings/str_cat.h>
+#include <absl/strings/string_view.h>
+
 #include <fstream>
 #include <iostream>
 #include <string>
-
-#include "absl/strings/str_cat.h"
-#include "absl/strings/string_view.h"
 
 namespace dennistwo {
 void Print(absl::string_view message) {

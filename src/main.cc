@@ -1,13 +1,15 @@
 #include <SDL3/SDL.h>
+#include <absl/status/status.h>
+#include <absl/status/statusor.h>
+#include <absl/strings/str_cat.h>
+#include <absl/strings/str_format.h>
 #include <glad/gl.h>
 
+#include <glm/ext.hpp>
+#include <glm/glm.hpp>
 #include <iostream>
 #include <vector>
 
-#include "absl/status/status.h"
-#include "absl/status/statusor.h"
-#include "absl/strings/str_cat.h"
-#include "absl/strings/str_format.h"
 #include "ecs/entity.h"
 #include "utils.h"
 
@@ -40,8 +42,8 @@ struct Globals {
     Entity *root;
 };
 
-int VIEWPORT_WIDTH = 640;
-int VIEWPORT_HEIGHT = 480;
+int VIEWPORT_WIDTH = 450;
+int VIEWPORT_HEIGHT = 800;
 
 void GLDebug() {
     std::cout << "Vendor: " << glGetString(GL_VENDOR) << std::endl;
@@ -55,13 +57,13 @@ GLuint BufferObjects[2];
 void VertexSpec() {
     // vertices
     const std::vector<GLfloat> data{
-        -0.5f, -0.5f, 0.f,
+        -0.5f, -0.5f, -5.f,
         1.f, 0.f, 0.f,  // color
-        0.5f, -0.5f, 0.0f,
+        0.5f, -0.5f, -5.f,
         0.f, 1.f, 0.f,  // color
-        -0.5f, 0.5f, 0.0f,
+        -0.5f, 0.5f, -5.f,
         0.f, 0.f, 1.f,  // color
-        0.5f, 0.5f, 0.0f,
+        0.5f, 0.5f, -5.f,
         0.f, 0.f, 1.f,  // color
     };
     // indices of the triangles
@@ -193,17 +195,64 @@ void Cleanup(Globals &&globals) {
     delete globals.assetsDir;
 }
 
+float ASPECT_RATIO = (float)VIEWPORT_WIDTH / (float)VIEWPORT_HEIGHT;
+
+float updown = 0.f;
+float leftright = 0.f;
+
+glm::mat4 projection = glm::perspective(glm::radians(45.0f), ASPECT_RATIO, 0.1f, 10.f);
+
 void PreDraw() {
     glDisable(GL_DEPTH_TEST);
     glDisable(GL_CULL_FACE);
     glViewport(0, 0, VIEWPORT_WIDTH, VIEWPORT_HEIGHT);
     glClearColor(1.f, 1.f, 0.1f, 1.f);
     glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
     glUseProgram(PIPELINE_SHADER_PROGRAM);
+
+    glm::mat4 model = glm::scale(glm::mat4(1.f), glm::vec3(0.5f, 0.5f, 1.f));
+    model = glm::rotate(
+        model,
+        glm::radians(0.f),
+        glm::vec3(0.f, 0.f, 1.f));
+    model = glm::translate(model, glm::vec3(leftright, updown, 0.0f));
+
+    GLuint uModelLoc = glGetUniformLocation(PIPELINE_SHADER_PROGRAM, "u_model");
+    if (uModelLoc >= 0) {
+        glUniformMatrix4fv(uModelLoc, 1, GL_FALSE, glm::value_ptr(model));
+    } else {
+        Print("failed to get uModelLoc");
+    }
+    GLuint uProjectionLoc = glGetUniformLocation(PIPELINE_SHADER_PROGRAM, "u_projection");
+    // Print(absl::StrCat(uModelLoc, " ", uProjectionLoc));
+    if (uProjectionLoc >= 0) {
+        glUniformMatrix4fv(uProjectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
+    } else {
+        Print("failed to get uProjectionLoc");
+    }
 }
-void Draw() {
+void Draw(Globals &globals) {
     GL_CHECKED(glBindVertexArray(VertexArrayObjects));
     GL_CHECKED(glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0));
+    globals.root->Render();
+}
+
+void Input() {
+    const bool *state = SDL_GetKeyboardState(nullptr);
+    if (state[SDL_SCANCODE_A]) {
+        leftright -= 0.0001f;
+    }
+    if (state[SDL_SCANCODE_D]) {
+        leftright += 0.0001f;
+    }
+    if (state[SDL_SCANCODE_W]) {
+        updown += 0.0001f;
+    }
+    if (state[SDL_SCANCODE_S]) {
+        updown -= 0.0001f;
+    }
 }
 
 void MainLoop(Globals &globals) {
@@ -215,8 +264,10 @@ void MainLoop(Globals &globals) {
             }
         }
 
+        Input();
+
         PreDraw();
-        Draw();
+        Draw(globals);
         SDL_GL_SwapWindow(globals.window);
     }
 }
