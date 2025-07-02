@@ -11,33 +11,18 @@
 #include <vector>
 
 #include "ecs/entity.h"
+#include "render/render_system.h"
 #include "utils.h"
 
 using dennistwo::LoadTextFile;
 using dennistwo::Print;
 using dennistwo::ecs::Entity;
-
-static void GLClearAllErrors() {
-    while (glGetError() != GL_NO_ERROR) {
-    }
-}
-
-static void GLCheckErrorStatus(const char *function, int line) {
-    while (GLenum error = glGetError()) {
-        Print(absl::StrFormat("OpenGL error %d from %s line %d", error, function, line));
-    }
-}
-
-#define GL_CHECKED(f)   \
-    GLClearAllErrors(); \
-    f;                  \
-    GLCheckErrorStatus(#f, __LINE__)
+using dennistwo::render::PrepareSquareDataProgram;
 
 struct Globals {
-    std::string *assetsDir;
+    std::string assetsDir;
     SDL_Window *window;
     SDL_GLContext glContext;
-    SDL_Renderer *renderer;
     bool exitSignal = false;
     Entity *root;
 };
@@ -52,96 +37,7 @@ void GLDebug() {
     std::cout << "Shading Language Version: " << glGetString(GL_SHADING_LANGUAGE_VERSION) << std::endl;
 }
 
-GLuint VertexArrayObjects;
-GLuint BufferObjects[2];
-void VertexSpec() {
-    // vertices
-    const std::vector<GLfloat> data{
-        -0.5f, -0.5f, -5.f,
-        1.f, 0.f, 0.f,  // color
-        0.5f, -0.5f, -5.f,
-        0.f, 1.f, 0.f,  // color
-        -0.5f, 0.5f, -5.f,
-        0.f, 0.f, 1.f,  // color
-        0.5f, 0.5f, -5.f,
-        0.f, 0.f, 1.f,  // color
-    };
-    // indices of the triangles
-    const std::vector<GLuint> indices{
-        0, 1, 2,
-        2, 1, 3};
-
-    glGenVertexArrays(1, &VertexArrayObjects);
-    glBindVertexArray(VertexArrayObjects);
-
-    glGenBuffers(2, BufferObjects);
-    glBindBuffer(GL_ARRAY_BUFFER, BufferObjects[0]);
-    glBufferData(GL_ARRAY_BUFFER, data.size() * sizeof(GLfloat), data.data(), GL_STATIC_DRAW);
-
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), 0);
-    glEnableVertexAttribArray(1);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(GLfloat), (GLvoid *)(3 * sizeof(GLfloat)));
-
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, BufferObjects[1]);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(GLuint), indices.data(), GL_STATIC_DRAW);
-
-    glBindVertexArray(0);
-    glDisableVertexAttribArray(0);
-    glDisableVertexAttribArray(1);
-}
-
-GLuint PIPELINE_SHADER_PROGRAM = 0;
-
-GLuint CompileShader(GLuint type, absl::string_view source) {
-    GLuint shader;
-    if (type == GL_VERTEX_SHADER) {
-        shader = glCreateShader(GL_VERTEX_SHADER);
-    } else if (type == GL_FRAGMENT_SHADER) {
-        shader = glCreateShader(GL_FRAGMENT_SHADER);
-    }
-    const char *data = source.data();
-    glShaderSource(shader, 1, &data, nullptr);
-    glCompileShader(shader);
-    int result;
-    glGetShaderiv(shader, GL_COMPILE_STATUS, &result);
-    if (result == GL_FALSE) {
-        int length;
-        glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &length);
-        char *errorMessage = new char[length];
-        glGetShaderInfoLog(shader, length, &length, errorMessage);
-        Print(errorMessage);
-        delete[] errorMessage;
-    }
-    return shader;
-}
-
-GLuint CreateShaderProgram(absl::string_view vs, absl::string_view fs) {
-    GLuint program = glCreateProgram();
-    GLuint cvs = CompileShader(GL_VERTEX_SHADER, vs);
-    GLuint cfs = CompileShader(GL_FRAGMENT_SHADER, fs);
-    glAttachShader(program, cvs);
-    glAttachShader(program, cfs);
-    glLinkProgram(program);
-    glValidateProgram(program);
-    // delete
-    glDetachShader(program, cvs);
-    glDetachShader(program, cfs);
-    glDeleteShader(cvs);
-    glDeleteShader(cfs);
-    return program;
-}
-
-void CreateGraphicsPipeline(Globals &globals) {
-    PIPELINE_SHADER_PROGRAM = CreateShaderProgram(
-        LoadTextFile(
-            absl::StrCat(*globals.assetsDir, "shaders/demo/vertex.glsl")),
-        LoadTextFile(
-            absl::StrCat(*globals.assetsDir, "shaders/demo/fragment.glsl")));
-}
-
 absl::StatusOr<Globals> Init(absl::string_view binaryDir) {
-    std::string *assetsDir = new std::string(absl::StrCat(binaryDir, "assets/"));
     SDL_Init(SDL_INIT_VIDEO);
 
     SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
@@ -171,88 +67,42 @@ absl::StatusOr<Globals> Init(absl::string_view binaryDir) {
 
     GLDebug();
 
-    SDL_Renderer *renderer = SDL_CreateRenderer(glWindow, NULL);
-    if (renderer == nullptr) {
-        return absl::InternalError(
-            absl::StrCat("failed to create renderer: ", SDL_GetError()));
-    }
+    std::string assetsDir = absl::StrCat(binaryDir, "assets/");
 
-    return Globals{
+    Globals globals{
         .assetsDir = assetsDir,
         .window = glWindow,
         .glContext = glContext,
-        .renderer = renderer,
         .root = new Entity("Root"),
     };
+
+    PrepareSquareDataProgram(assetsDir);
+
+    return globals;
 }
 
 void Cleanup(Globals &&globals) {
-    SDL_DestroyRenderer(globals.renderer);
     SDL_GL_DestroyContext(globals.glContext);
     SDL_DestroyWindow(globals.window);
     SDL_Quit();
     delete globals.root;
-    delete globals.assetsDir;
 }
 
 float ASPECT_RATIO = (float)VIEWPORT_WIDTH / (float)VIEWPORT_HEIGHT;
 
-float updown = 0.f;
-float leftright = 0.f;
+float WORLD_WIDTH = 5.f;  // half
+float WORLD_HEIGHT = WORLD_WIDTH / ASPECT_RATIO;
 
-glm::mat4 projection = glm::perspective(glm::radians(45.0f), ASPECT_RATIO, 0.1f, 10.f);
+glm::mat4 projection = glm::ortho(-WORLD_WIDTH, WORLD_WIDTH, -WORLD_HEIGHT, WORLD_HEIGHT, 0.1f, 10.f);
 
 void PreDraw() {
-    glDisable(GL_DEPTH_TEST);
-    glDisable(GL_CULL_FACE);
-    glViewport(0, 0, VIEWPORT_WIDTH, VIEWPORT_HEIGHT);
-    glClearColor(1.f, 1.f, 0.1f, 1.f);
-    glClear(GL_DEPTH_BUFFER_BIT | GL_COLOR_BUFFER_BIT);
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-    glUseProgram(PIPELINE_SHADER_PROGRAM);
-
-    glm::mat4 model = glm::scale(glm::mat4(1.f), glm::vec3(0.5f, 0.5f, 1.f));
-    model = glm::rotate(
-        model,
-        glm::radians(0.f),
-        glm::vec3(0.f, 0.f, 1.f));
-    model = glm::translate(model, glm::vec3(leftright, updown, 0.0f));
-
-    GLuint uModelLoc = glGetUniformLocation(PIPELINE_SHADER_PROGRAM, "u_model");
-    if (uModelLoc >= 0) {
-        glUniformMatrix4fv(uModelLoc, 1, GL_FALSE, glm::value_ptr(model));
-    } else {
-        Print("failed to get uModelLoc");
-    }
-    GLuint uProjectionLoc = glGetUniformLocation(PIPELINE_SHADER_PROGRAM, "u_projection");
-    // Print(absl::StrCat(uModelLoc, " ", uProjectionLoc));
-    if (uProjectionLoc >= 0) {
-        glUniformMatrix4fv(uProjectionLoc, 1, GL_FALSE, glm::value_ptr(projection));
-    } else {
-        Print("failed to get uProjectionLoc");
-    }
 }
+
 void Draw(Globals &globals) {
-    GL_CHECKED(glBindVertexArray(VertexArrayObjects));
-    GL_CHECKED(glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0));
     globals.root->Render();
 }
 
 void Input() {
-    const bool *state = SDL_GetKeyboardState(nullptr);
-    if (state[SDL_SCANCODE_A]) {
-        leftright -= 0.0001f;
-    }
-    if (state[SDL_SCANCODE_D]) {
-        leftright += 0.0001f;
-    }
-    if (state[SDL_SCANCODE_W]) {
-        updown += 0.0001f;
-    }
-    if (state[SDL_SCANCODE_S]) {
-        updown -= 0.0001f;
-    }
 }
 
 void MainLoop(Globals &globals) {
@@ -263,9 +113,7 @@ void MainLoop(Globals &globals) {
                 globals.exitSignal = true;
             }
         }
-
         Input();
-
         PreDraw();
         Draw(globals);
         SDL_GL_SwapWindow(globals.window);
@@ -287,9 +135,6 @@ int main(int argc, char *argv[]) {
     if (!globals.ok()) {
         Print(globals.status().ToString());
     }
-
-    VertexSpec();
-    CreateGraphicsPipeline(*globals);
 
     MainLoop(*globals);
 

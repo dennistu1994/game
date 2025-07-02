@@ -3,7 +3,9 @@
 #include "entity.h"
 
 namespace dennistwo::ecs {
-Entity* Square(glm::vec3 position, glm::vec2 size, std::optional<absl::string_view> identifier) {
-    Entity* square = new Entity(identifier);
+Entity* TestEntity(glm::vec3 position) {
+    Entity* entity = new Entity();
+    return entity;
 }
-}
+
+}  // namespace dennistwo::ecs

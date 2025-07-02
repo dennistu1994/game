@@ -24,13 +24,14 @@ enable_testing()
 include_directories(src)
 add_subdirectory(src)
 add_subdirectory(src/ecs)
+add_subdirectory(src/render)
 
-add_library(utils src/utils.h src/utils.cc)
-target_link_libraries(utils PRIVATE absl::string_view)
+add_library(dennistwo_utils src/utils.h src/utils.cc)
+target_link_libraries(dennistwo_utils PRIVATE absl::strings)
 
 # EXECUTABLES
 add_executable(${PROJECT_NAME} src/main.cc)
 
 target_link_libraries(${PROJECT_NAME} PRIVATE SDL3::SDL3 glad_gl_core_41)
 target_link_libraries(${PROJECT_NAME} PRIVATE absl::statusor absl::strings)
-target_link_libraries(${PROJECT_NAME} PRIVATE utils dennistwo_ecs)
+target_link_libraries(${PROJECT_NAME} PRIVATE dennistwo_utils dennistwo_ecs dennistwo_render)

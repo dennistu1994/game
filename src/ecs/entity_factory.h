@@ -3,5 +3,5 @@
 
 #include "entity.h"
 namespace dennistwo::ecs {
-Entity* Square(glm::vec3 position, glm::vec2 size);
+Entity* TestEntity(glm::vec3 position);
 }

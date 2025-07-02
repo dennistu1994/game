@@ -5,4 +5,4 @@ target_link_libraries(dennistwo_ecs PUBLIC glm::glm)
 
 add_executable(entity_test entity_test.cc)
 add_test(NAME EntityTest COMMAND entity_test)
-target_link_libraries(entity_test PRIVATE Catch2WithMain dennistwo_ecs absl::strings)
+target_link_libraries(entity_test PRIVATE Catch2WithMain dennistwo_ecs absl::strings dennistwo_utils)
